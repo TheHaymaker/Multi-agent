@@ -33,6 +33,9 @@ _RULE_SEVERITY = {
     "@typescript-eslint/no-unsafe-argument": Severity.HIGH,
 }
 
+# The ESLint rules this agent owns — Code Quality excludes these to avoid double-filing.
+TYPE_HYGIENE_RULES = frozenset(_RULE_SEVERITY)
+
 # tsc implicit-any diagnostics worth fixing (TS7006 param, TS7005 var, TS7031 binding, etc.)
 _TSC_IMPLICIT_ANY = {"TS7005", "TS7006", "TS7008", "TS7031", "TS7034", "TS7053"}
 _TSC_LINE = re.compile(r"^(?P<path>[^()]+)\((?P<line>\d+),(?P<col>\d+)\):\s+error\s+(?P<code>TS\d+):\s+(?P<msg>.*)$")

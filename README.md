@@ -20,7 +20,7 @@ future lift to Google Cloud is a binding swap, not a rewrite.
 ```bash
 cp .env.example .env          # fill in ANTHROPIC_API_KEY, GITHUB_TOKEN, SENTRY_AUTH_TOKEN
 make dev                      # install runtime + dev deps
-make test                     # 94 tests — core logic runs with zero external services
+make test                     # 101 tests — core logic runs with zero external services
 make up                       # postgres + redis + qdrant + langfuse + app via docker compose
 make health                   # verify config + which MCP toolsets connect
 
@@ -54,9 +54,9 @@ webhooks ─▶ Redis queue ─▶ Root Orchestrator (ADK) ─▶ specialists �
 | Root Orchestrator | schedules, routes, owns memory, writes the digest | ✅ |
 | **Signal Triage** | Sentry/Grafana → dedupe, severity, RCA → file backlog issue | ✅ |
 | PR Coordinator | rebases its own stale branches, answers review threads, plans draft-PR edits | ✅ |
-| Code Quality | ruff/semgrep → findings → small draft PRs | ✅ |
+| Code Quality | **Python** ruff + **JS/TS/React/Next** ESLint (hooks, `jsx-key`, `@next/next`, a11y, import cycles) → small draft PRs | ✅ |
 | Test & Coverage | coverage.py gaps (+ mutmut) → draft tests | ✅ |
-| Performance | pytest-benchmark vs baseline → regression issues | ✅ |
+| Performance | **Python** pytest-benchmark + **Next.js** bundle size (First Load JS) + **Lighthouse** Core Web Vitals → issues | ✅ |
 | **TypeScript Type-Hygiene** | clears `any`/unsafe casts in **small, atomic PRs** (line cap) | ✅ |
 | Code Surgeon (worker) | Claude Agent SDK; edits in a git worktree, opens draft PR | ✅ |
 | Backlog/Jira | polls Jira, reconciles cross-system, dedupes, proposes priority | ✅ |

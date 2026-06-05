@@ -186,6 +186,34 @@ async def run_code_work(
     return proposals
 
 
+def run_issue_work(
+    *,
+    guard: "PolicyGuard",
+    batches: list[ChangeBatch],
+    repo_path: str,
+    actor: str,
+    file_issue: Callable[[ActionRequest], str] | None = None,
+) -> None:
+    """File one backlog issue per batch (for specialists that report, e.g. Performance).
+
+    Gated through the PolicyGuard like every other write. ``file_issue`` performs the actual
+    forge call; injected so this is testable without a live forge.
+    """
+    for batch in batches:
+        body = "\n".join(
+            f"- {f.path}: {f.summary}" + (f"\n    {f.detail}" if f.detail else "")
+            for f in batch.findings
+        )
+        req = ActionRequest(
+            action=ActionType.CREATE_ISSUE,
+            actor=actor,
+            summary=batch.title,
+            repo=repo_path,
+            payload={"body": body, "labels": [batch.kind, "overnight"]},
+        )
+        guard.guard(req, file_issue or (lambda r: f"{r.action.value}: {r.summary}"))
+
+
 def _default_open_pr(proposal: ChangeProposal) -> str:
     # Thin seam; a real run invokes the GitHub/GitLab MCP create-PR tool.
     return f"draft PR from {proposal.branch} -> {proposal.base_branch}"
