@@ -31,6 +31,10 @@ make triage P=tests/fixtures/sentry_issue_alert.json
 `make serve` runs the overnight daemon: a FastAPI webhook ingress (Sentry/GitHub → Redis queue) plus an
 APScheduler that polls every 15 min and fires a full sweep + digest at 06:00.
 
+> **Getting it actually running on your machine** (real issues/PRs against your repos): follow the phased
+> road-to-runnable in **[`docs/RUNNING_LOCALLY.md`](docs/RUNNING_LOCALLY.md)** — it's explicit about what's
+> done vs. what still needs wiring, and you get value as early as Phase 2.
+
 ---
 
 ## How it works
