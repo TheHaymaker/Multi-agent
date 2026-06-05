@@ -34,6 +34,9 @@ APScheduler that polls every 15 min and fires a full sweep + digest at 06:00.
 > **Getting it actually running on your machine** (real issues/PRs against your repos): follow the phased
 > road-to-runnable in **[`docs/RUNNING_LOCALLY.md`](docs/RUNNING_LOCALLY.md)** — it's explicit about what's
 > done vs. what still needs wiring, and you get value as early as Phase 2.
+>
+> **Where it goes next** — improvements to the existing agents and new agents worth adding (dependency/
+> supply-chain, security/SAST, tech-debt, migration driver, a11y, …): **[`docs/AGENT_ROADMAP.md`](docs/AGENT_ROADMAP.md)**.
 
 ---
 
