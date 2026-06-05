@@ -9,7 +9,9 @@ reports). Works across Python and JS/TS/React/Next.js:
     eslint      → Code Quality (React/Next rules)  → draft PR
                   + TypeScript Type-Hygiene (any/unsafe, with tsc) → draft PR
     tsc         → TypeScript Type-Hygiene          → draft PR
-    coverage    → Test & Coverage                  → draft PR
+    coverage    → Test & Coverage (coverage.py)    → draft PR
+    js_coverage → Test & Coverage (Jest/Vitest)    → draft PR
+    playwright  → Test & Coverage (E2E health)     → issue   (failing/flaky/skipped)
     bench       → Performance (pytest-benchmark)   → issue   (value: (json, baseline))
     next_build  → Performance (Next.js bundle)     → issue   (value: (data, baseline[, budget_kb]))
     lighthouse  → Performance (Core Web Vitals)    → issue   (value: json or (json, budgets))
@@ -66,10 +68,18 @@ def _detect(reports: dict[str, Any]) -> list[WorkUnit]:
     if ts:
         units.append(WorkUnit("typescript_types", ts, typescript_types.DEFAULT_CHECKS, "symbol"))
 
-    # --- Test coverage ---
+    # --- Test coverage: Python (coverage.py) + JS/TS (Jest/Vitest Istanbul) ---
     cov = coverage.parse_coverage(reports.get("coverage", ""))
     if cov:
         units.append(WorkUnit("test_coverage", cov, coverage.DEFAULT_CHECKS, "path"))
+    js_cov = coverage.parse_js_coverage(reports.get("js_coverage", ""))
+    if js_cov:
+        units.append(WorkUnit("test_coverage", js_cov, coverage.JS_CHECKS, "path"))
+
+    # --- E2E test health: Playwright (issue mode — a failing E2E may be a real bug) ---
+    pw = coverage.parse_playwright(reports.get("playwright", ""))
+    if pw:
+        units.append(WorkUnit("test_coverage", pw, coverage.PLAYWRIGHT_CHECKS, "path", mode="issue"))
 
     # --- Performance (issue mode): Python benchmarks + Next bundles + Lighthouse ---
     perf: list[Finding] = []
