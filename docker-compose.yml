@@ -1,0 +1,66 @@
+# Plan A local stack: one command brings up everything the fleet needs.
+#   docker compose up -d   # postgres (sessions), redis (queue), qdrant (memory), langfuse (traces)
+#   make sweep             # run a triage sweep against queued signals
+#
+# Plan B (GCP) replaces this file with deploy/terraform/ (Cloud Run + Vertex + Secret Manager).
+services:
+  postgres:
+    image: pgvector/pgvector:pg16        # ADK session state + Mem0 pgvector option
+    environment:
+      POSTGRES_USER: overnight
+      POSTGRES_PASSWORD: overnight
+      POSTGRES_DB: overnight
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U overnight"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine                # event queue (webhook -> sweep)
+    ports: ["6379:6379"]
+
+  qdrant:
+    image: qdrant/qdrant:latest          # vector store for Mem0 long-term memory
+    ports: ["6333:6333"]
+    volumes: ["qdrant:/qdrant/storage"]
+
+  langfuse-db:
+    image: postgres:16-alpine            # langfuse's own metadata db (v2 single-container)
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes: ["langfusedata:/var/lib/postgresql/data"]
+
+  langfuse:
+    image: langfuse/langfuse:2           # self-hosted LLM/agent observability (OTLP in)
+    depends_on: ["langfuse-db"]
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      NEXTAUTH_SECRET: change-me-in-.env
+      SALT: change-me-in-.env
+      NEXTAUTH_URL: http://localhost:3000
+    ports: ["3000:3000"]
+
+  app:
+    build: .
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      qdrant: { condition: service_started }
+    env_file: [.env]
+    environment:
+      POSTGRES_DSN: postgresql://overnight:overnight@postgres:5432/overnight
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      LANGFUSE_HOST: http://langfuse:3000
+    ports: ["8080:8080"]   # webhook ingress
+    command: ["overnight", "serve"]
+
+volumes:
+  pgdata:
+  qdrant:
+  langfusedata:
