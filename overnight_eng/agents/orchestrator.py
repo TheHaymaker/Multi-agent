@@ -42,14 +42,27 @@ def build_root_agent(
     from google.adk.models.lite_llm import LiteLlm
     from google.adk.tools import LoadMemoryTool, PreloadMemoryTool
 
-    triage = build_signal_triage_agent(env, memory, toolsets)
+    from overnight_eng.specialists.code_quality import build_code_quality_agent
+    from overnight_eng.specialists.coverage import build_coverage_agent
+    from overnight_eng.specialists.performance import build_performance_agent
+    from overnight_eng.specialists.pr_coordinator import build_pr_coordinator_agent
+    from overnight_eng.specialists.typescript_types import build_typescript_agent
+
+    sub_agents = [
+        build_signal_triage_agent(env, memory, toolsets),
+        build_pr_coordinator_agent(env, memory, toolsets),
+        build_code_quality_agent(env, memory),
+        build_coverage_agent(env, memory),
+        build_performance_agent(env, memory),
+        build_typescript_agent(env, memory),
+    ]
 
     return Agent(
         name="root_orchestrator",
         model=LiteLlm(model=env.settings.reasoning_model),
         instruction=INSTRUCTION,
         tools=[PreloadMemoryTool(), LoadMemoryTool()],
-        sub_agents=[triage],
+        sub_agents=sub_agents,
         after_agent_callback=make_persist_callback(memory),
     )
 

@@ -20,7 +20,7 @@ future lift to Google Cloud is a binding swap, not a rewrite.
 ```bash
 cp .env.example .env          # fill in ANTHROPIC_API_KEY, GITHUB_TOKEN, SENTRY_AUTH_TOKEN
 make dev                      # install runtime + dev deps
-make test                     # 51 tests — core logic runs with zero external services
+make test                     # 74 tests — core logic runs with zero external services
 make up                       # postgres + redis + qdrant + langfuse + app via docker compose
 make health                   # verify config + which MCP toolsets connect
 
@@ -51,15 +51,15 @@ webhooks ─▶ Redis queue ─▶ Root Orchestrator (ADK) ─▶ specialists �
 ### The agent fleet
 | Agent | Does | Status |
 |---|---|---|
-| Root Orchestrator | schedules, routes, owns memory, writes the digest | ✅ MVP |
-| **Signal Triage** | Sentry/Grafana → dedupe, severity, RCA → file backlog issue | ✅ MVP vertical |
+| Root Orchestrator | schedules, routes, owns memory, writes the digest | ✅ |
+| **Signal Triage** | Sentry/Grafana → dedupe, severity, RCA → file backlog issue | ✅ |
+| PR Coordinator | rebases its own stale branches, answers review threads, plans draft-PR edits | ✅ |
+| Code Quality | ruff/semgrep → findings → small draft PRs | ✅ |
+| Test & Coverage | coverage.py gaps (+ mutmut) → draft tests | ✅ |
+| Performance | pytest-benchmark vs baseline → regression issues | ✅ |
+| **TypeScript Type-Hygiene** | clears `any`/unsafe casts in **small, atomic PRs** (line cap) | ✅ |
+| Code Surgeon (worker) | Claude Agent SDK; edits in a git worktree, opens draft PR | ✅ |
 | Backlog/Jira | polls Jira, reconciles, proposes priority | planned |
-| PR Coordinator | comments, rebases its own stale branches, opens draft PRs | planned |
-| Code Quality | ruff/pylint/semgrep → findings → draft PRs | planned |
-| Test & Coverage | coverage + mutation testing → draft tests | planned |
-| Performance | benchmarks/profilers → regressions | planned |
-| **TypeScript Type-Hygiene** | clears `any`/unsafe casts in **small, atomic PRs** (line cap) | planned |
-| Code Surgeon (worker) | Claude Agent SDK; edits in a git worktree, opens draft PR | ✅ skeleton |
 
 ### Propose-only autonomy
 Every side-effecting action goes through one gate — `overnight_eng/tools/policy_guard.py`:
@@ -87,7 +87,9 @@ request-driven, so "overnight" becomes a scheduled trigger rather than a long-ru
 
 ## Verification
 - `make test` — PolicyGuard (deny merge/main, allow draft PR/issue), dedupe, Sentry normalize, severity,
-  memory hydration, and the **Sentry→issue e2e** (one issue filed; duplicate delivery files nothing new).
+  memory hydration, the **Sentry→issue e2e**, the small-PR **batching planner**, every specialist parser
+  (tsc/ESLint, ruff, coverage, benchmark), and the **code-sweep e2e** (findings → small draft PRs +
+  stale-branch rebase, all gated).
 - `make triage P=...` — one-shot triage of a payload, dry-run by default.
 - After `make up`: open Langfuse at `http://localhost:3000` to see hierarchical agent traces.
 
@@ -95,12 +97,14 @@ request-driven, so "overnight" becomes a scheduled trigger rather than a long-ru
 ```
 overnight_eng/
 ├── agents/        orchestrator + signal_triage (ADK) + shared callbacks
+├── specialists/   base (Findings + small-PR batching + code-work driver),
+│                  pr_coordinator, code_quality, coverage, performance, typescript_types
 ├── tools/         mcp_config (Sentry/Grafana/GitHub/GitLab/Jira) + policy_guard
 ├── triage/        dedupe + severity (pure, heavily tested)
 ├── sources/       webhook payload → Signal normalizers
 ├── memory/        FleetMemory (Mem0/pgvector + in-memory fallback)
 ├── workers/       code_surgeon (Claude Agent SDK)
-├── scheduler/     sweep, jobs (APScheduler), webhook (FastAPI)
+├── scheduler/     sweep, code_sweep, jobs (APScheduler), webhook (FastAPI)
 ├── reporting/     morning digest
 ├── runtime.py     Plan A service bindings (swap here for Plan B)
 └── cli.py         overnight {health,triage,sweep,serve}

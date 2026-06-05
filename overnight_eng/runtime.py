@@ -31,6 +31,7 @@ class Runtime:
     memory: FleetMemory
     guard: PolicyGuard
     toolsets: dict[str, Any]
+    surgeon: Any  # CodeSurgeon (Claude Agent SDK worker)
     app: Any  # ADK App (lazily built)
     session_service: Any
 
@@ -41,12 +42,16 @@ class Runtime:
         guard = PolicyGuard(config=PolicyConfig(dry_run=env.settings.dry_run))
         toolsets = build_toolsets(env, toolset_names or ["sentry", "grafana", "github"])
 
+        from overnight_eng.workers.code_surgeon import CodeSurgeon
+
+        surgeon = CodeSurgeon(env)
+
         # Lazy heavy imports: ADK App + Postgres-backed session service.
         from overnight_eng.agents.orchestrator import build_app
 
         app = build_app(env, memory, toolsets)
         session_service = _build_session_service(env)
-        return cls(env, memory, guard, toolsets, app, session_service)
+        return cls(env, memory, guard, toolsets, surgeon, app, session_service)
 
 
 def _build_session_service(env: Environment) -> Any:
