@@ -85,3 +85,36 @@ def test_empty_reports_quiet_night() -> None:
     rt = _RT(guard=PolicyGuard(config=PolicyConfig()))
     digest = asyncio.run(run_code_sweep(rt, repo_path="/repo", reports={}))
     assert "Quiet night" in digest
+
+
+def test_code_sweep_uses_gitlab_forge_for_merge_requests() -> None:
+    """With a GitLab forge wired, the sweep opens draft MRs (not PRs) — parity end-to-end."""
+    from overnight_eng.specialists.pr_coordinator import PullRequest
+    from overnight_eng.tools.forge import build_forge
+
+    calls: list[tuple[str, dict]] = []
+
+    def invoke(tool: str, kwargs: dict) -> str:
+        calls.append((tool, kwargs))
+        return f"{tool}:ok"
+
+    @dataclass
+    class _RTForge:
+        guard: PolicyGuard
+        surgeon: _FakeSurgeon
+        forge: object
+
+    rt = _RTForge(
+        guard=PolicyGuard(config=PolicyConfig()),
+        surgeon=_FakeSurgeon(),
+        forge=build_forge("gitlab", invoke),
+    )
+    asyncio.run(run_code_sweep(
+        rt, repo_path="group/proj", base_branch="main", reports=_reports(),
+        prs=[PullRequest(number=7, branch="agent/old", base="main", behind_by=2, repo="group/proj")],
+    ))
+    tools = [c[0] for c in calls]
+    assert "create_merge_request" in tools          # draft MRs, not PRs
+    assert "rebase_merge_request" in tools          # GitLab-native rebase
+    mr_calls = [kw for t, kw in calls if t == "create_merge_request"]
+    assert all(kw["title"].startswith("Draft: ") for kw in mr_calls)

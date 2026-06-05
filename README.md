@@ -20,7 +20,7 @@ future lift to Google Cloud is a binding swap, not a rewrite.
 ```bash
 cp .env.example .env          # fill in ANTHROPIC_API_KEY, GITHUB_TOKEN, SENTRY_AUTH_TOKEN
 make dev                      # install runtime + dev deps
-make test                     # 74 tests — core logic runs with zero external services
+make test                     # 94 tests — core logic runs with zero external services
 make up                       # postgres + redis + qdrant + langfuse + app via docker compose
 make health                   # verify config + which MCP toolsets connect
 
@@ -59,7 +59,13 @@ webhooks ─▶ Redis queue ─▶ Root Orchestrator (ADK) ─▶ specialists �
 | Performance | pytest-benchmark vs baseline → regression issues | ✅ |
 | **TypeScript Type-Hygiene** | clears `any`/unsafe casts in **small, atomic PRs** (line cap) | ✅ |
 | Code Surgeon (worker) | Claude Agent SDK; edits in a git worktree, opens draft PR | ✅ |
-| Backlog/Jira | polls Jira, reconciles, proposes priority | planned |
+| Backlog/Jira | polls Jira, reconciles cross-system, dedupes, proposes priority | ✅ |
+
+### GitHub & GitLab parity
+One forge abstraction (`overnight_eng/tools/forge.py`) maps neutral actions (issue, **draft
+PR/MR**, comment, rebase) to each provider — GitHub draft PRs vs GitLab `Draft:` merge
+requests, `update_pull_request_branch` vs native `rebase_merge_request`. Set `FORGE=github`
+or `FORGE=gitlab`; the sweep executors pick the right calls automatically.
 
 ### Propose-only autonomy
 Every side-effecting action goes through one gate — `overnight_eng/tools/policy_guard.py`:
@@ -88,8 +94,9 @@ request-driven, so "overnight" becomes a scheduled trigger rather than a long-ru
 ## Verification
 - `make test` — PolicyGuard (deny merge/main, allow draft PR/issue), dedupe, Sentry normalize, severity,
   memory hydration, the **Sentry→issue e2e**, the small-PR **batching planner**, every specialist parser
-  (tsc/ESLint, ruff, coverage, benchmark), and the **code-sweep e2e** (findings → small draft PRs +
-  stale-branch rebase, all gated).
+  (tsc/ESLint, ruff, coverage, benchmark), the **code-sweep e2e** (findings → small draft PRs +
+  stale-branch rebase, all gated), **forge parity** (GitHub PRs vs GitLab `Draft:` MRs/rebase), and
+  **Jira reconciliation** (cross-system de-dup + priority proposals).
 - `make triage P=...` — one-shot triage of a payload, dry-run by default.
 - After `make up`: open Langfuse at `http://localhost:3000` to see hierarchical agent traces.
 
@@ -97,9 +104,9 @@ request-driven, so "overnight" becomes a scheduled trigger rather than a long-ru
 ```
 overnight_eng/
 ├── agents/        orchestrator + signal_triage (ADK) + shared callbacks
-├── specialists/   base (Findings + small-PR batching + code-work driver),
-│                  pr_coordinator, code_quality, coverage, performance, typescript_types
-├── tools/         mcp_config (Sentry/Grafana/GitHub/GitLab/Jira) + policy_guard
+├── specialists/   base (Findings + small-PR batching + code-work driver), pr_coordinator,
+│                  code_quality, coverage, performance, typescript_types, jira_backlog
+├── tools/         mcp_config (Sentry/Grafana/GitHub/GitLab/Jira) + policy_guard + forge
 ├── triage/        dedupe + severity (pure, heavily tested)
 ├── sources/       webhook payload → Signal normalizers
 ├── memory/        FleetMemory (Mem0/pgvector + in-memory fallback)

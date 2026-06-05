@@ -32,6 +32,7 @@ class Runtime:
     guard: PolicyGuard
     toolsets: dict[str, Any]
     surgeon: Any  # CodeSurgeon (Claude Agent SDK worker)
+    forge: Any    # GitHub/GitLab forge (semantic write API over MCP)
     app: Any  # ADK App (lazily built)
     session_service: Any
 
@@ -40,18 +41,49 @@ class Runtime:
         env = init_environment()
         memory = FleetMemory.create(env)
         guard = PolicyGuard(config=PolicyConfig(dry_run=env.settings.dry_run))
-        toolsets = build_toolsets(env, toolset_names or ["sentry", "grafana", "github"])
+        toolsets = build_toolsets(
+            env, toolset_names or ["sentry", "grafana", "github", "gitlab", "jira"]
+        )
 
         from overnight_eng.workers.code_surgeon import CodeSurgeon
 
         surgeon = CodeSurgeon(env)
+        forge = _build_forge(env, toolsets)
 
         # Lazy heavy imports: ADK App + Postgres-backed session service.
         from overnight_eng.agents.orchestrator import build_app
 
         app = build_app(env, memory, toolsets)
         session_service = _build_session_service(env)
-        return cls(env, memory, guard, toolsets, surgeon, app, session_service)
+        return cls(env, memory, guard, toolsets, surgeon, forge, app, session_service)
+
+
+def _build_forge(env: Environment, toolsets: dict[str, Any]) -> Any:
+    """Build the configured forge over its MCP toolset. Returns None if unavailable."""
+    from overnight_eng.tools.forge import build_forge
+
+    provider = env.settings.forge_provider
+    toolset = toolsets.get(provider)
+    if toolset is None:
+        return None
+
+    def invoke(tool_name: str, kwargs: dict[str, Any]) -> str:
+        # Seam: route a semantic call to the provider's MCP tool. The single function to wire
+        # to live ADK McpToolset tool execution; until then it returns a descriptive ref.
+        return _invoke_mcp_tool(toolset, tool_name, kwargs)
+
+    return build_forge(provider, invoke)
+
+
+def _invoke_mcp_tool(toolset: Any, tool_name: str, kwargs: dict[str, Any]) -> str:
+    """Invoke a named tool on an MCP toolset (best-effort; descriptive fallback)."""
+    runner = getattr(toolset, "call_tool", None) or getattr(toolset, "run_tool", None)
+    if callable(runner):
+        try:
+            return str(runner(tool_name, kwargs))
+        except Exception as exc:  # noqa: BLE001
+            return f"mcp call '{tool_name}' failed: {exc!r}"
+    return f"{tool_name}({kwargs})"
 
 
 def _build_session_service(env: Environment) -> Any:

@@ -65,6 +65,14 @@ async def run_code_sweep(
     reports = reports or {}
     detected = _detect(reports)
 
+    # Default the forge executors from the runtime's configured forge (GitHub/GitLab parity).
+    forge = getattr(runtime, "forge", None)
+    if forge is not None:
+        from overnight_eng.tools.forge import make_pr_action_executor, make_pr_executor
+
+        open_pr = open_pr or make_pr_executor(forge)
+        pr_execute = pr_execute or make_pr_action_executor(forge)
+
     for actor, (findings, checks, group_by) in detected.items():
         batches = plan_batches(findings, max_lines=max_lines, group_by=group_by,
                                title_prefix=_prefix_for(actor))

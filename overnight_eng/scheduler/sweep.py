@@ -32,11 +32,15 @@ def _file_issue_executor(runtime: "Runtime", signal: Signal, severity: Severity)
     """
 
     def execute(_req: ActionRequest) -> str:
-        gh = runtime.toolsets.get("github")
-        if gh is None:
-            return f"(no github toolset) would file [{severity.value}] {signal.title}"
-        # Real call would invoke the toolset's create_issue tool; kept as a thin seam so the
-        # filing path is gated + auditable without coupling the test suite to a live forge.
+        forge = getattr(runtime, "forge", None)
+        if forge is not None:
+            return forge.create_issue(
+                repo=signal.project,
+                title=f"[{severity.value}] {signal.title}",
+                body=f"{signal.body}\n\nSource: {signal.url}\nFingerprint: {signal.fingerprint}",
+                labels=[severity.value, "overnight", signal.source.value],
+            )
+        # No forge wired (dry-run / no creds) — deterministic stub keeps the digest coherent.
         return runtime.env.get("ISSUE_URL_STUB", f"filed:{signal.fingerprint}")
 
     return execute

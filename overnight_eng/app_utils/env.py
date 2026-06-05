@@ -47,6 +47,8 @@ class Settings:
     # Whether the Code Surgeon authenticates via Claude subscription (CLI/Agent SDK OAuth)
     # or a per-token API key. Subscription is flat-rate; API scales to many parallel agents.
     surgeon_use_subscription: bool = os.getenv("SURGEON_USE_SUBSCRIPTION", "true").lower() == "true"
+    # Which forge the deterministic sweep executors target ('github' | 'gitlab').
+    forge_provider: str = os.getenv("FORGE", "github")
     dry_run: bool = os.getenv("OVERNIGHT_DRY_RUN", "false").lower() == "true"
 
 

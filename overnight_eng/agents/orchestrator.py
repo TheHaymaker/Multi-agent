@@ -44,6 +44,7 @@ def build_root_agent(
 
     from overnight_eng.specialists.code_quality import build_code_quality_agent
     from overnight_eng.specialists.coverage import build_coverage_agent
+    from overnight_eng.specialists.jira_backlog import build_jira_agent
     from overnight_eng.specialists.performance import build_performance_agent
     from overnight_eng.specialists.pr_coordinator import build_pr_coordinator_agent
     from overnight_eng.specialists.typescript_types import build_typescript_agent
@@ -51,6 +52,7 @@ def build_root_agent(
     sub_agents = [
         build_signal_triage_agent(env, memory, toolsets),
         build_pr_coordinator_agent(env, memory, toolsets),
+        build_jira_agent(env, memory, toolsets),
         build_code_quality_agent(env, memory),
         build_coverage_agent(env, memory),
         build_performance_agent(env, memory),
